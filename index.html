@@ -259,8 +259,13 @@
     </div>
 </div>
 
-<script>
-    // מונע קריסה בתוך Iframe של דפדפנים מאובטחים
+<!-- Firebase SDK integration for Domain-Based Cloud Save -->
+<script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+    import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+    import { getFirestore, doc, setDoc, getDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+    // Fallback storage utility
     const safeStorage = {
         getItem: (key) => {
             try { return localStorage.getItem(key) || ""; } 
@@ -272,10 +277,41 @@
         }
     };
 
+    const getStoredFetch = () => {
+        const val = safeStorage.getItem('star_fetch_v30');
+        if (!val || val === "null" || val === "undefined" || val.trim() === "") return "";
+        return val.trim();
+    };
+
+    // =========================================================================
+    // 🔴 נתנאל - כתובת דיפולטיבית קבועה למערכת
+    // =========================================================================
+    const DEFAULT_URL = ""; 
+    // =========================================================================
+
     const CONFIG = {
-        fetch: safeStorage.getItem('star_fetch_v29') || "",
+        fetch: getStoredFetch() || DEFAULT_URL,
         pass: "ofek123"
     };
+
+    // Firebase Cloud configuration
+    let db = null;
+    let auth = null;
+    let firebaseEnabled = false;
+    let appId = 'default-app-id';
+
+    try {
+        if (typeof __firebase_config !== 'undefined' && __firebase_config) {
+            const firebaseConfig = JSON.parse(__firebase_config);
+            const app = initializeApp(firebaseConfig);
+            auth = getAuth(app);
+            db = getFirestore(app);
+            appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+            firebaseEnabled = true;
+        }
+    } catch (e) {
+        console.warn("Cloud persistence database not available. Falling back to local storage.");
+    }
 
     let allMessages = [];
     let currentFilter = null;
@@ -285,14 +321,13 @@
         return ['#128C7E','#075E54','#1565C0','#6A1B9A','#AD1457','#E65100','#2E7D32','#00838F'][h % 8];
     };
 
-    // ניקוי שם הלקוח בצורה יסודית
     const cleanName = (name) => {
         if (!name || typeof name !== 'string') return 'אורח';
         return name
-            .replace(/^\uFEFF/, '') // מחיקת BOM
-            .replace(/\s*\([^)]*\)/g, '') // הסרת סוגריים ותוכן
-            .replace(/לקוח[א-ת]*/g, '') // הסרת המילה "לקוח/לקוחה/לקוחב"
-            .replace(/\s+/g, ' ') // סידור רווחים כפולים
+            .replace(/^\uFEFF/, '')
+            .replace(/\s*\([^)]*\)/g, '')
+            .replace(/לקוח[א-ת]*/g, '')
+            .replace(/\s+/g, ' ')
             .trim() || 'אורח';
     };
 
@@ -301,12 +336,9 @@
     const fixDriveUrl = (url) => url && url.includes('drive.google.com') ? `https://drive.google.com/uc?export=view&id=${url.match(/\/d\/([^\/]+)/)?.[1]}` : url;
     const formatSeconds = (s) => isNaN(s) ? "0:00" : `${Math.floor(s/60)}:${Math.floor(s%60).toString().padStart(2, '0')}`;
 
-    // ממיר אוטומטית קישורי גוגל שיטס (רגילים או פרסום) לפורמט CSV מאובטח וקריא
     const convertSheetUrl = (url) => {
         if (!url) return "";
         url = url.trim();
-        
-        // טיפול בקישור שיתוף רגיל
         if (url.includes("docs.google.com/spreadsheets") && !url.includes("output=csv") && !url.includes("format=csv")) {
             const idMatch = url.match(/\/d\/([^\/]+)/);
             if (idMatch && idMatch[1]) {
@@ -317,16 +349,12 @@
                 return `https://docs.google.com/spreadsheets/d/${id}/export?format=csv&gid=${gid}`;
             }
         }
-        
-        // טיפול בקישור פרסום באינטרנט (pubhtml)
         if (url.includes("docs.google.com/spreadsheets") && url.includes("/pubhtml")) {
             return url.replace("/pubhtml", "/pub?output=csv");
         }
-        
         return url;
     };
 
-    // מזהה מפריד עמודות (CSV Delimiter) באופן דינמי (פותר את בעיית הנקודה פסיק בישראל)
     const detectDelimiter = (text) => {
         const firstLine = text.split(/\r?\n/)[0] || "";
         let commas = 0, semicolons = 0, tabs = 0;
@@ -363,6 +391,50 @@
         return lines;
     }
 
+    const getHostnameKey = () => {
+        return window.location.hostname.replace(/\./g, '_') || 'local_test';
+    };
+
+    // Onboarding configuration & fetching data
+    async function initApp() {
+        let finalFetchUrl = CONFIG.fetch;
+
+        // RULE 3 - Authenticate first before attempting Firestore queries
+        if (firebaseEnabled) {
+            try {
+                const user = await new Promise((resolve) => {
+                    const unsubscribe = onAuthStateChanged(auth, (u) => {
+                        unsubscribe();
+                        resolve(u);
+                    });
+                    if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                        signInWithCustomToken(auth, __initial_auth_token).catch(() => signInAnonymously(auth));
+                    } else {
+                        signInAnonymously(auth);
+                    }
+                });
+
+                if (user) {
+                    // RULE 1 - Strict Path structure for fetching config
+                    const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'configs', getHostnameKey());
+                    const docSnap = await getDoc(docRef);
+                    if (docSnap.exists()) {
+                        const cloudUrl = docSnap.data().fetchUrl;
+                        if (cloudUrl) {
+                            finalFetchUrl = cloudUrl;
+                            safeStorage.setItem('star_fetch_v30', finalFetchUrl);
+                        }
+                    }
+                }
+            } catch (e) {
+                console.error("קריסה בזיהוי הגדרות ענן, עובר להגדרות דפדפן מקומיות:", e);
+            }
+        }
+
+        CONFIG.fetch = finalFetchUrl;
+        await loadData();
+    }
+
     async function loadData() {
         const dot = document.getElementById('status-dot');
         const label = document.getElementById('status-label');
@@ -377,15 +449,12 @@
             const res = await fetch(convertedUrl);
             const text = await res.text();
             
-            // זיהוי הגנת אבטחה של גוגל (אם דורש התחברות או שהדף נחסם)
             if (text.includes("<!DOCTYPE html>") || text.includes("<html") || text.includes("Google Accounts") || text.includes("Sign in")) {
-                throw new Error("CORS / Google auth redirect detected");
+                throw new Error("CORS or authentication error");
             }
 
             const rows = parseCSV(text);
             let rawData = [];
-
-            // מיפוי עמודות חכם (Smart Column Mapper) לפי כותרות הגיליון
             let nameIdx = 0, dateIdx = 1, msgIdx = 2, imgIdx = 3;
             let startIndex = 0;
 
@@ -398,17 +467,13 @@
                 );
 
                 if (hasHeader) {
-                    startIndex = 1; // מדלגים על שורת הכותרת
-                    
+                    startIndex = 1;
                     const nId = headers.findIndex(h => h.includes("שם") || h.includes("name") || h.includes("לקוח") || h.includes("client"));
                     if (nId !== -1) nameIdx = nId;
-
                     const dId = headers.findIndex(h => h.includes("תאריך") || h.includes("date") || h.includes("time") || h.includes("שעה"));
                     if (dId !== -1) dateIdx = dId;
-
                     const mId = headers.findIndex(h => h.includes("הודעה") || h.includes("message") || h.includes("תוכן") || h.includes("text") || h.includes("content"));
                     if (mId !== -1) msgIdx = mId;
-
                     const iId = headers.findIndex(h => h.includes("תמונה") || h.includes("image") || h.includes("img") || h.includes("הקלטה") || h.includes("audio") || h.includes("קובץ"));
                     if (iId !== -1) imgIdx = iId;
                 }
@@ -582,18 +647,52 @@
         } 
     }
 
-    function saveSettings() { 
+    async function saveSettings() { 
         const val = document.getElementById('fetch-url').value.trim();
-        safeStorage.setItem('star_fetch_v29', val); 
+        safeStorage.setItem('star_fetch_v30', val); 
         CONFIG.fetch = val;
         hideScreens();
         
         document.getElementById('loading-screen').style.display = 'flex';
         document.getElementById('loading-text').textContent = "מעדכן נתונים ומסנכרן את הלוח...";
+
+        // שמירת המידע בענן בצורה מאובטחת לפי דומיין - RULE 1 + RULE 3
+        if (firebaseEnabled && auth.currentUser) {
+            try {
+                const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'configs', getHostnameKey());
+                await setDoc(docRef, {
+                    fetchUrl: val,
+                    updatedAt: new Date().toISOString()
+                });
+                console.log("הגדרות ענן עודכנו בהצלחה עבור:", window.location.hostname);
+            } catch (e) {
+                console.error("שגיאה בשמירת הגדרות ענן:", e);
+            }
+        }
+        
         loadData(); 
     }
 
-    window.onload = loadData;
+    // Attach modules functions to window object for HTML compatibility
+    window.scrollToBottom = scrollToBottom;
+    window.toggleAudio = toggleAudio;
+    window.toggleSpeed = toggleSpeed;
+    window.showClients = showClients;
+    window.applyClientFilter = applyClientFilter;
+    window.clearClientFilter = clearClientFilter;
+    window.hideScreens = hideScreens;
+    window.askForPassword = askForPassword;
+    window.checkPassword = checkPassword;
+    window.saveSettings = saveSettings;
+    window.renderClientList = renderClientList;
+    window.renderFeed = renderFeed;
+    window.handleScroll = handleScroll;
+    window.updateDuration = updateDuration;
+    window.updateWaveform = updateWaveform;
+    window.resetWaveform = resetWaveform;
+
+    // Load App
+    initApp();
 </script>
 </body>
 </html>
