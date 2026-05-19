@@ -188,7 +188,6 @@
     <div id="loading-text" style="margin-top:15px; font-size:13px; color:var(--secondary)">טוען נתונים...</div>
 </div>
 
-<!-- Scroll to Bottom Button -->
 <button id="scroll-bottom-btn" onclick="scrollToBottom()">
     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#BBBBBB" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
         <polyline points="6 9 12 15 18 9"></polyline>
@@ -259,7 +258,6 @@
     </div>
 </div>
 
-<!-- Firebase SDK integration for Domain-Based Cloud Save -->
 <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
     import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
@@ -286,7 +284,7 @@
     // =========================================================================
     // 🔴 נתנאל - כתובת דיפולטיבית קבועה למערכת
     // =========================================================================
-    const DEFAULT_URL = ""; 
+    const DEFAULT_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSTHZnTHbOqnMmObU_TMRugTaeJfDGclbW093oDyGb5f_z2G8E6w1ZXzJX1AjDt7P5GBULXe7nYCv3u/pub?output=csv"; 
     // =========================================================================
 
     const CONFIG = {
