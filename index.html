@@ -1,0 +1,599 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>פרגונים בכוכב ⭐</title>
+    <link href="https://fonts.googleapis.com/css2?family=Rubik:wght@300;400;500;600&display=swap" rel="stylesheet">
+    <style>
+        /* CSS Reset & Variables */
+        * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+        :root {
+            --bg: #000000;
+            --header-bg: #000000;
+            --bubble-in: #1C1C1E;
+            --text: #FFFFFF;
+            --secondary: #8E8E93;
+            --green: #30D158;
+            --wa-blue: #53BDEB;
+            --wa-gray: #444446;
+            --star: #8E8E93;
+            --divider: rgba(255,255,255,0.1);
+            --search-bg: #1C1C1E;
+        }
+
+        body {
+            font-family: 'Rubik', sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            height: 100dvh;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            max-width: 500px;
+            margin: 0 auto;
+        }
+
+        /* Loading Screen */
+        #loading-screen {
+            position: fixed; inset: 0; background: black; z-index: 1000;
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+        }
+        .spinner {
+            width: 32px; height: 32px; border: 3px solid rgba(255,255,255,0.1);
+            border-top-color: var(--green); border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        /* Overlays */
+        .screen-overlay { position: fixed; inset: 0; background: var(--bg); z-index: 200; display: none; flex-direction: column; }
+        .card { background: #1C1C1E; border-radius: 16px; padding: 24px; width: calc(100% - 40px); margin: 20px auto; box-shadow: 0 4px 20px rgba(0,0,0,0.4); }
+        .input-field { width: 100%; background: #2C2C2E; border: 1px solid #3A3A3C; border-radius: 8px; padding: 12px; color: white; margin-top: 10px; outline: none; direction: ltr; font-size: 16px; }
+        .btn { width: 100%; background: var(--green); color: black; border: none; border-radius: 12px; padding: 16px; font-weight: 600; margin-top: 20px; cursor: pointer; }
+
+        /* Header */
+        .header { background: var(--header-bg); padding: 16px 20px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--divider); z-index: 10; }
+        .header-edit { color: #FFFFFF; font-size: 19px; font-weight: 400; text-decoration: underline; background: none; border: none; cursor: pointer; padding: 0; min-width: 60px; text-align: left; }
+        .header-title { font-size: 18px; font-weight: 600; color: #FFFFFF; flex: 1; text-align: center; }
+        .header-arrow { color: #FFFFFF; display: flex; align-items: center; justify-content: flex-start; min-width: 60px; cursor: pointer; background: none; border: none; }
+
+        /* Search */
+        .search-wrap { padding: 12px 16px; background: var(--bg); }
+        .search-box { background: var(--search-bg); border-radius: 14px; display: flex; align-items: center; padding: 10px 16px; gap: 12px; }
+        .search-box input { background: none; border: none; color: white; flex: 1; outline: none; font-family: 'Rubik'; font-size: 17px; text-align: right; }
+        .search-box input::placeholder { color: #8E8E93; opacity: 0.7; }
+
+        /* Feed Area */
+        .messages-wrap {
+            flex: 1; overflow-y: auto; padding: 15px; position: relative;
+            background-image: url('https://user-images.githubusercontent.com/15075759/28719144-86dc0f70-73b1-11e7-911d-60d70fcded21.png');
+            background-blend-mode: overlay; background-color: var(--bg);
+            scroll-behavior: smooth;
+        }
+
+        /* Scroll to Bottom Button */
+        #scroll-bottom-btn {
+            position: fixed; 
+            bottom: 30px; 
+            left: 20px; 
+            width: 44px; 
+            height: 44px;
+            background: #232325; 
+            border-radius: 50%; 
+            display: none; 
+            align-items: center; 
+            justify-content: center;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.6); 
+            z-index: 150; 
+            cursor: pointer; 
+            border: none;
+            transition: opacity 0.3s, transform 0.2s, background 0.2s; 
+            opacity: 0;
+        }
+        #scroll-bottom-btn.visible { display: flex; opacity: 1; }
+        #scroll-bottom-btn:active { transform: scale(0.9); background: #2c2c2e; }
+
+        .msg-row { display: flex; gap: 10px; margin-bottom: 14px; align-items: flex-start; }
+        .avatar { width: 38px; height: 38px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 600; color: #fff; flex-shrink: 0; }
+        .bubble { flex: 1; background: var(--bubble-in); border-radius: 0 14px 14px 14px; padding: 8px; position: relative; box-shadow: 0 1px 3px rgba(0,0,0,0.4); }
+        .bubble-inner { padding: 4px 8px 6px 8px; }
+        .bubble-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; gap: 10px; }
+        .sender-name { font-size: 14px; font-weight: 600; }
+        .msg-date { font-size: 11px; color: var(--secondary); white-space: nowrap; }
+        .msg-text { font-size: 15px; line-height: 1.5; color: #E5E5E7; margin-top: 8px; }
+        .msg-img { width: 100%; border-radius: 8px; display: block; margin-bottom: 4px; cursor: pointer; }
+
+        /* Audio Player */
+        .audio-player-container { position: relative; margin-top: 8px; background: rgba(255,255,255,0.03); border-radius: 12px; padding: 6px 4px; }
+        .audio-player { display: flex; align-items: center; gap: 12px; padding: 10px 4px; direction: ltr; }
+        .play-btn { width: 42px; height: 42px; display: flex; align-items: center; justify-content: center; cursor: pointer; color: var(--secondary); flex-shrink: 0; }
+        .waveform-visualizer { flex: 1; display: flex; align-items: center; justify-content: space-between; gap: 2px; height: 35px; position: relative; }
+        .waveform-bar { width: 2px; background: var(--wa-gray); border-radius: 1px; transition: background 0.05s; }
+        .waveform-bar.active { background: #FFFFFF; }
+        .progress-head { position: absolute; left: 0%; top: 50%; transform: translate(-50%, -50%); width: 12px; height: 12px; background: var(--wa-blue); border-radius: 50%; z-index: 10; box-shadow: 0 0 4px rgba(83, 189, 235, 0.4); pointer-events: none; display: none; }
+        .speed-btn { background: #3A3A3C; color: white; border-radius: 15px; font-size: 11px; font-weight: 700; padding: 4px 8px; cursor: pointer; min-width: 38px; text-align: center; border: none; flex-shrink: 0; }
+        .audio-duration { position: absolute; bottom: 4px; right: 12px; font-size: 10px; color: var(--secondary); font-weight: 500; }
+
+        .msg-footer { display: flex; align-items: center; justify-content: flex-end; margin-top: 6px; }
+        .star-icon { color: var(--star); font-size: 12px; }
+        .status-bar { background: #000000; padding: 8px 16px; font-size: 11px; color: var(--secondary); display: flex; gap: 8px; align-items: center; border-top: 1px solid var(--divider); }
+        .dot { width: 7px; height: 7px; border-radius: 50%; background: #3A3A3C; }
+        .dot.live { background: var(--green); box-shadow: 0 0 5px var(--green); }
+        .active-filter-bar { background: var(--green); color: black; padding: 10px 16px; font-size: 13px; font-weight: 700; display: none; align-items: center; justify-content: space-between; }
+
+        /* CRM */
+        .clients-content { flex: 1; overflow-y: auto; padding: 0 20px; }
+        .client-card { display: flex; align-items: center; gap: 14px; padding: 16px 0; border-bottom: 1px solid var(--divider); cursor: pointer; }
+        .client-meta { flex: 1; }
+        .client-name-title { font-weight: 600; font-size: 16px; margin-bottom: 4px; }
+        .client-counters { display: flex; gap: 6px; }
+        .counter-tag { background: #2C2C2E; padding: 2px 10px; border-radius: 10px; font-size: 11px; color: var(--secondary); display: flex; align-items: center; gap: 3px; }
+
+        /* Onboarding Screen Style */
+        .setup-prompt {
+            text-align: right;
+            padding: 30px 16px;
+            margin: auto;
+            max-width: 440px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            height: 100%;
+            overflow-y: auto;
+        }
+        .setup-prompt h2 { font-size: 22px; margin-bottom: 12px; font-weight: 600; text-align: center; }
+        .setup-prompt p { color: var(--secondary); font-size: 14px; line-height: 1.6; margin-bottom: 20px; text-align: center; }
+        
+        .steps-container {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            width: 100%;
+            margin-bottom: 24px;
+        }
+        .step-card {
+            background: #1C1C1E;
+            border-radius: 12px;
+            padding: 14px;
+            border: 1px solid var(--divider);
+        }
+        .step-num {
+            color: var(--green);
+            font-weight: 700;
+            font-size: 13px;
+            margin-bottom: 4px;
+            display: block;
+        }
+        .step-title {
+            font-weight: 600;
+            font-size: 15px;
+            color: #FFFFFF;
+            margin-bottom: 4px;
+        }
+        .step-desc {
+            font-size: 13px;
+            color: var(--secondary);
+            line-height: 1.5;
+        }
+        .step-desc b {
+            color: #FFFFFF;
+        }
+    </style>
+</head>
+<body>
+
+<div id="loading-screen">
+    <div class="spinner"></div>
+    <div id="loading-text" style="margin-top:15px; font-size:13px; color:var(--secondary)">טוען נתונים...</div>
+</div>
+
+<!-- Scroll to Bottom Button -->
+<button id="scroll-bottom-btn" onclick="scrollToBottom()">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#BBBBBB" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+        <polyline points="6 9 12 15 18 9"></polyline>
+    </svg>
+</button>
+
+<div id="clients-screen" class="screen-overlay">
+    <div class="header">
+        <div style="min-width:60px;"></div>
+        <div class="header-title">סיכום לקוחות</div>
+        <button class="header-edit" onclick="hideScreens()" style="text-align:left;">סגור</button>
+    </div>
+    <div class="search-wrap">
+        <div class="search-box">
+            <input type="text" id="client-search-input" placeholder="חיפוש לקוח..." oninput="renderClientList()">
+        </div>
+    </div>
+    <div class="clients-content" id="clients-list-root"></div>
+</div>
+
+<div id="password-screen" class="screen-overlay" style="justify-content:center;">
+    <div class="card">
+        <h2 style="text-align:center; margin-bottom:15px;">🔒 אבטחה</h2>
+        <input class="input-field" id="pass-input" type="password" placeholder="קוד גישה...">
+        <div id="password-error" style="color: #FF453A; font-size: 13px; margin-top: 10px; display: none; text-align: center; font-weight: 500;">קוד גישה שגוי, נסה שוב</div>
+        <button class="btn" onclick="checkPassword()">כניסה</button>
+        <button class="btn" style="background:#3A3A3C; margin-top:8px; color:white;" onclick="hideScreens()">ביטול</button>
+    </div>
+</div>
+
+<div id="setup-screen" class="screen-overlay" style="justify-content:center;">
+    <div class="card">
+        <h2 style="text-align:center; margin-bottom:15px;">⚙️ הגדרות</h2>
+        <input class="input-field" id="fetch-url" placeholder="הדבק כאן קישור גוגל שיטס או וובוק">
+        <button class="btn" onclick="saveSettings()">שמור וסנכרן</button>
+        <button class="btn" style="background:#3A3A3C; margin-top:8px; color:white;" onclick="hideScreens()">סגור</button>
+    </div>
+</div>
+
+<div id="app" style="display:flex; flex-direction:column; height:100dvh;">
+    <div class="header">
+        <button class="header-arrow" onclick="showClients()">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="15 18 9 12 15 6"></polyline>
+            </svg>
+        </button>
+        <div class="header-title" id="main-view-title">הודעות מסומנות בכוכב</div>
+        <button class="header-edit" onclick="askForPassword()">עריכה</button>
+    </div>
+
+    <div class="active-filter-bar" id="filter-bar">
+        <span id="filter-name">מסונן לפי לקוח</span>
+        <span style="cursor:pointer" onclick="clearClientFilter()">ביטול ×</span>
+    </div>
+
+    <div class="search-wrap">
+        <div class="search-box">
+            <input type="text" id="main-search" placeholder="חיפוש" oninput="renderFeed()">
+        </div>
+    </div>
+
+    <div class="messages-wrap" id="messages-container" onscroll="handleScroll()"></div>
+
+    <div class="status-bar">
+        <div class="dot" id="status-dot"></div>
+        <span id="status-label">מנותק</span>
+        <span style="margin-right:auto" id="sync-time"></span>
+    </div>
+</div>
+
+<script>
+    // מונע קריסה בתוך Iframe של דפדפנים מאובטחים
+    const safeStorage = {
+        getItem: (key) => {
+            try { return localStorage.getItem(key) || ""; } 
+            catch (e) { return window[`__fallback_${key}`] || ""; }
+        },
+        setItem: (key, val) => {
+            try { localStorage.setItem(key, val); } 
+            catch (e) { window[`__fallback_${key}`] = val; }
+        }
+    };
+
+    const CONFIG = {
+        fetch: safeStorage.getItem('star_fetch_v29') || "",
+        pass: "ofek123"
+    };
+
+    let allMessages = [];
+    let currentFilter = null;
+
+    const getAvatarColor = (name) => {
+        let h = 0; for (let i = 0; i < (name||'').length; i++) h = (h * 31 + name.charCodeAt(i)) >>> 0;
+        return ['#128C7E','#075E54','#1565C0','#6A1B9A','#AD1457','#E65100','#2E7D32','#00838F'][h % 8];
+    };
+
+    // ניקוי שם הלקוח בצורה יסודית
+    const cleanName = (name) => {
+        if (!name || typeof name !== 'string') return 'אורח';
+        return name
+            .replace(/^\uFEFF/, '') // מחיקת BOM
+            .replace(/\s*\([^)]*\)/g, '') // הסרת סוגריים ותוכן
+            .replace(/לקוח[א-ת]*/g, '') // הסרת המילה "לקוח/לקוחה/לקוחב"
+            .replace(/\s+/g, ' ') // סידור רווחים כפולים
+            .trim() || 'אורח';
+    };
+
+    const isImage = (url) => url && typeof url === 'string' && url.trim().toLowerCase().startsWith('http') && (['.jpg','.jpeg','.png','.gif','.webp'].some(e => url.toLowerCase().includes(e)) || url.includes('drive.google.com'));
+    const isAudio = (url) => url && typeof url === 'string' && url.trim().toLowerCase().startsWith('http') && (['.mp3','.wav','.m4a','.ogg'].some(e => url.toLowerCase().includes(e)) || url.includes('drive.google.com/file/d/') || url.includes('storage.googleapis.com'));
+    const fixDriveUrl = (url) => url && url.includes('drive.google.com') ? `https://drive.google.com/uc?export=view&id=${url.match(/\/d\/([^\/]+)/)?.[1]}` : url;
+    const formatSeconds = (s) => isNaN(s) ? "0:00" : `${Math.floor(s/60)}:${Math.floor(s%60).toString().padStart(2, '0')}`;
+
+    // ממיר אוטומטית קישורי גוגל שיטס (רגילים או פרסום) לפורמט CSV מאובטח וקריא
+    const convertSheetUrl = (url) => {
+        if (!url) return "";
+        url = url.trim();
+        
+        // טיפול בקישור שיתוף רגיל
+        if (url.includes("docs.google.com/spreadsheets") && !url.includes("output=csv") && !url.includes("format=csv")) {
+            const idMatch = url.match(/\/d\/([^\/]+)/);
+            if (idMatch && idMatch[1]) {
+                const id = idMatch[1];
+                let gid = "0";
+                const gidMatch = url.match(/[#&?]gid=([0-9]+)/);
+                if (gidMatch && gidMatch[1]) gid = gidMatch[1];
+                return `https://docs.google.com/spreadsheets/d/${id}/export?format=csv&gid=${gid}`;
+            }
+        }
+        
+        // טיפול בקישור פרסום באינטרנט (pubhtml)
+        if (url.includes("docs.google.com/spreadsheets") && url.includes("/pubhtml")) {
+            return url.replace("/pubhtml", "/pub?output=csv");
+        }
+        
+        return url;
+    };
+
+    // מזהה מפריד עמודות (CSV Delimiter) באופן דינמי (פותר את בעיית הנקודה פסיק בישראל)
+    const detectDelimiter = (text) => {
+        const firstLine = text.split(/\r?\n/)[0] || "";
+        let commas = 0, semicolons = 0, tabs = 0;
+        let inQuotes = false;
+        for (let i = 0; i < firstLine.length; i++) {
+            const c = firstLine[i];
+            if (c === '"') inQuotes = !inQuotes;
+            if (!inQuotes) {
+                if (c === ',') commas++;
+                if (c === ';') semicolons++;
+                if (c === '\t') tabs++;
+            }
+        }
+        if (semicolons > commas && semicolons > tabs) return ';';
+        if (tabs > commas && tabs > semicolons) return '\t';
+        return ',';
+    };
+
+    function parseCSV(text) {
+        const delimiter = detectDelimiter(text);
+        let lines = []; let row = [""]; let inQuotes = false;
+        for (let i = 0; i < text.length; i++) {
+            let c = text[i]; let next = text[i+1];
+            if (c === '"') {
+                if (inQuotes && next === '"') { row[row.length - 1] += '"'; i++; }
+                else { inQuotes = !inQuotes; }
+            } else if (c === delimiter && !inQuotes) { row.push(''); }
+            else if ((c === '\r' || c === '\n') && !inQuotes) {
+                if (c === '\r' && next === '\n') { i++; }
+                lines.push(row); row = [''];
+            } else { row[row.length - 1] += c; }
+        }
+        if (row.length > 1 || row[0] !== '') { lines.push(row); }
+        return lines;
+    }
+
+    async function loadData() {
+        const dot = document.getElementById('status-dot');
+        const label = document.getElementById('status-label');
+        const convertedUrl = convertSheetUrl(CONFIG.fetch);
+        
+        if (!convertedUrl) {
+            showOnboardingScreen();
+            return;
+        }
+
+        try {
+            const res = await fetch(convertedUrl);
+            const text = await res.text();
+            
+            // זיהוי הגנת אבטחה של גוגל (אם דורש התחברות או שהדף נחסם)
+            if (text.includes("<!DOCTYPE html>") || text.includes("<html") || text.includes("Google Accounts") || text.includes("Sign in")) {
+                throw new Error("CORS / Google auth redirect detected");
+            }
+
+            const rows = parseCSV(text);
+            let rawData = [];
+
+            // מיפוי עמודות חכם (Smart Column Mapper) לפי כותרות הגיליון
+            let nameIdx = 0, dateIdx = 1, msgIdx = 2, imgIdx = 3;
+            let startIndex = 0;
+
+            if (rows.length > 0) {
+                const headers = rows[0].map(h => (h || "").trim().toLowerCase());
+                const hasHeader = headers.some(h => 
+                    h.includes("שם") || h.includes("name") || 
+                    h.includes("תאריך") || h.includes("date") || 
+                    h.includes("הודעה") || h.includes("message") || h.includes("תוכן")
+                );
+
+                if (hasHeader) {
+                    startIndex = 1; // מדלגים על שורת הכותרת
+                    
+                    const nId = headers.findIndex(h => h.includes("שם") || h.includes("name") || h.includes("לקוח") || h.includes("client"));
+                    if (nId !== -1) nameIdx = nId;
+
+                    const dId = headers.findIndex(h => h.includes("תאריך") || h.includes("date") || h.includes("time") || h.includes("שעה"));
+                    if (dId !== -1) dateIdx = dId;
+
+                    const mId = headers.findIndex(h => h.includes("הודעה") || h.includes("message") || h.includes("תוכן") || h.includes("text") || h.includes("content"));
+                    if (mId !== -1) msgIdx = mId;
+
+                    const iId = headers.findIndex(h => h.includes("תמונה") || h.includes("image") || h.includes("img") || h.includes("הקלטה") || h.includes("audio") || h.includes("קובץ"));
+                    if (iId !== -1) imgIdx = iId;
+                }
+            }
+
+            for (let i = startIndex; i < rows.length; i++) {
+                const row = rows[i];
+                if (row && row.length > 0 && row[nameIdx]) {
+                    rawData.push({
+                        name: cleanName(row[nameIdx]),
+                        date: row[dateIdx] || '',
+                        message: row[msgIdx] || '',
+                        image: row[imgIdx] || ''
+                    });
+                }
+            }
+
+            allMessages = rawData;
+            renderFeed();
+            dot.className = 'dot live';
+            label.textContent = "מחובר";
+            document.getElementById('sync-time').textContent = new Date().toLocaleTimeString('he-IL', {hour:'2-digit', minute:'2-digit'});
+            document.getElementById('loading-screen').style.display = 'none';
+            setTimeout(scrollToBottom, 500);
+        } catch (e) { 
+            console.error(e);
+            showErrorScreen();
+        }
+    }
+
+    function showOnboardingScreen() {
+        document.getElementById('status-label').textContent = "ממתין להגדרה";
+        document.getElementById('messages-container').innerHTML = `
+            <div class="setup-prompt">
+                <div style="font-size: 50px; margin-bottom: 15px; text-align:center;">⭐</div>
+                <h2>מערכת פרגונים בכוכב</h2>
+                <p>כדי להתחיל להציג את הפרגונים של העסק, בצעו את ההגדרות הבאות:</p>
+                <div class="steps-container">
+                    <div class="step-card">
+                        <span class="step-num">שלב 1</span>
+                        <div class="step-title">פרסום הגיליון לאינטרנט</div>
+                        <div class="step-desc">בגוגל שיטס שלכם, לחצו על <b>קובץ</b> > <b>שיתוף</b> > <b>פרסום באינטרנט</b>. בחרו ב-"ערכים מופרדים בפסיקים (CSV)" ולחצו על פרסם.</div>
+                    </div>
+                    <div class="step-card">
+                        <span class="step-num">שלב 2</span>
+                        <div class="step-title">העתקת הקישור</div>
+                        <div class="step-desc">העתיקו את הקישור שגוגל יצרה לכם (הוא יסתיים ב-pub?output=csv).</div>
+                    </div>
+                </div>
+                <button class="btn" style="width: 100%;" onclick="askForPassword()">הגדרה ראשונית מהירה</button>
+            </div>
+        `;
+        document.getElementById('loading-screen').style.display = 'none';
+    }
+
+    function showErrorScreen() {
+        document.getElementById('status-label').textContent = "שגיאת חיבור";
+        document.getElementById('messages-container').innerHTML = `
+            <div class="setup-prompt">
+                <div style="font-size: 50px; margin-bottom: 15px; text-align:center;">⚠️</div>
+                <h2>שגיאה בחיבור הנתונים</h2>
+                <p>תכל'ס, משהו בחיבור לא עבד. הנה בדיוק מה שצריך לעשות כדי לתקן את זה ב-10 שניות:</p>
+                <div class="steps-container">
+                    <div class="step-card">
+                        <span class="step-num">שלב 1</span>
+                        <div class="step-title">בדיקת הרשאות בגוגל שיטס</div>
+                        <div class="step-desc">וודאו שהרשאות השיתוף של הגיליון מוגדרות כ-<b>"כל מי שקיבל את הקישור יכול לצפות"</b>.</div>
+                    </div>
+                    <div class="step-card">
+                        <span class="step-num">שלב 2 (הכי מומלץ!)</span>
+                        <div class="step-title">הזנת קישור פרסום CSV</div>
+                        <div class="step-desc">עדיף ללחוץ על <b>קובץ</b> > <b>שיתוף</b> > <b>פרסום באינטרנט</b>, לבחור ב-<b>CSV</b> ולהדביק את הקישור שמתקבל כאן. זה עוקף את כל הגנות גוגל!</div>
+                    </div>
+                </div>
+                <button class="btn" style="width: 100%;" onclick="askForPassword()">עדכון הגדרות קישור</button>
+            </div>
+        `;
+        document.getElementById('loading-screen').style.display = 'none';
+    }
+
+    function renderFeed() {
+        const container = document.getElementById('messages-container');
+        const query = (document.getElementById('main-search').value || '').toLowerCase();
+        let filtered = allMessages;
+        if (currentFilter) filtered = filtered.filter(m => m.name === currentFilter);
+        if (query) filtered = filtered.filter(m => m.name.toLowerCase().includes(query) || m.message.toLowerCase().includes(query));
+        const sorted = filtered.sort((a,b) => new Date(a.date) - new Date(b.date));
+        
+        container.innerHTML = sorted.map((m, idx) => {
+            const color = getAvatarColor(m.name);
+            const audioUrl = isAudio(m.message) ? fixDriveUrl(m.message) : (isAudio(m.image) ? fixDriveUrl(m.image) : null);
+            const displayImg = !audioUrl && isImage(m.message) ? fixDriveUrl(m.message) : fixDriveUrl(m.image);
+            const displayText = audioUrl || isImage(m.message) ? '' : m.message;
+            let barsHtml = ''; for(let i=0; i<42; i++) barsHtml += `<div class="waveform-bar bar-${idx}" style="height:${Math.floor(Math.random()*24)+6}px;"></div>`;
+
+            return `
+                <div class="msg-row">
+                    <div class="avatar" style="background:${color}">${m.name[0]}</div>
+                    <div class="bubble">
+                        <div class="bubble-inner">
+                            <div class="bubble-header"><span class="sender-name" style="color:${color}">${m.name}</span><span class="msg-date">${m.date ? new Date(m.date).toLocaleDateString('he-IL') : ''}</span></div>
+                            ${displayImg && isImage(displayImg) ? `<img src="${displayImg}" class="msg-img" onclick="window.open(this.src)">` : ''}
+                            ${audioUrl ? `
+                                <div class="audio-player-container">
+                                    <div class="audio-player" id="player-${idx}">
+                                        <div class="play-btn" onclick="toggleAudio('${audioUrl}', ${idx})"><svg id="icon-${idx}" viewBox="0 0 24 24" width="34" height="34" fill="currentColor"><path d="M8 5v14l11-7z"/></svg></div>
+                                        <div class="waveform-visualizer"><div class="progress-head" id="head-${idx}"></div>${barsHtml}</div>
+                                        <button class="speed-btn" id="speed-${idx}" onclick="toggleSpeed(${idx})">1x</button>
+                                        <audio id="audio-${idx}" src="${audioUrl}" onloadedmetadata="updateDuration(${idx})" ontimeupdate="updateWaveform(${idx})" onended="resetWaveform(${idx})"></audio>
+                                    </div>
+                                    <div class="audio-duration" id="duration-${idx}">...</div>
+                                </div>` : ''}
+                            ${displayText ? `<div class="msg-text">${displayText}</div>` : ''}
+                            <div class="msg-footer"><span class="star-icon">★</span></div>
+                        </div>
+                    </div>
+                </div>`;
+        }).join('') || '<div style="text-align:center; margin-top:50px; color:var(--secondary)">אין הודעות</div>';
+    }
+
+    function handleScroll() {
+        const container = document.getElementById('messages-container');
+        const btn = document.getElementById('scroll-bottom-btn');
+        const isUp = container.scrollHeight - container.scrollTop - container.clientHeight > 300;
+        if (isUp) btn.classList.add('visible'); else btn.classList.remove('visible');
+    }
+
+    function scrollToBottom() {
+        const container = document.getElementById('messages-container');
+        container.scrollTo({ top: container.scrollHeight, behavior: 'smooth' });
+    }
+
+    function toggleAudio(url, id) {
+        const audio = document.getElementById(`audio-${id}`);
+        const icon = document.getElementById(`icon-${id}`);
+        const head = document.getElementById(`head-${id}`);
+        document.querySelectorAll('audio').forEach(a => { if (a.id !== `audio-${id}`) { a.pause(); const otherId = a.id.split('-')[1]; const otherIcon = document.getElementById(`icon-${otherId}`); if (otherIcon) otherIcon.innerHTML = '<path d="M8 5v14l11-7z"/>'; } });
+        if (audio.paused) { audio.play(); icon.innerHTML = '<path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/>'; if (head) head.style.display = 'block'; } else { audio.pause(); icon.innerHTML = '<path d="M8 5v14l11-7z"/>'; }
+    }
+    function toggleSpeed(id) { const a = document.getElementById(`audio-${id}`); const b = document.getElementById(`speed-${id}`); if (a.playbackRate === 1) { a.playbackRate = 1.5; b.textContent = '1.5x'; } else if (a.playbackRate === 1.5) { a.playbackRate = 2; b.textContent = '2x'; } else { a.playbackRate = 1; b.textContent = '1x'; } }
+    function updateDuration(id) { const a = document.getElementById(`audio-${id}`); const d = document.getElementById(`duration-${id}`); if (a && d) d.textContent = formatSeconds(a.duration); }
+    function updateWaveform(id) {
+        const a = document.getElementById(`audio-${id}`); const bars = document.querySelectorAll(`.bar-${id}`); const head = document.getElementById(`head-${id}`); const prog = a.currentTime / a.duration;
+        const activeCount = Math.floor(prog * bars.length);
+        bars.forEach((bar, idx) => { if(idx <= activeCount) bar.classList.add('active'); else bar.classList.remove('active'); });
+        if (head) { head.style.left = (prog * 100) + '%'; head.style.display = 'block'; }
+    }
+    function resetWaveform(id) { const bars = document.querySelectorAll(`.bar-${id}`); bars.forEach(bar => bar.classList.remove('active')); const icon = document.getElementById(`icon-${id}`); if(icon) icon.innerHTML = '<path d="M8 5v14l11-7z"/>'; const head = document.getElementById(`head-${id}`); if(head) { head.style.left = '0%'; head.style.display = 'none'; } }
+
+    function showClients() { document.getElementById('clients-screen').style.display = 'flex'; renderClientList(); }
+    function renderClientList() {
+        const root = document.getElementById('clients-list-root');
+        const query = (document.getElementById('client-search-input').value || '').toLowerCase();
+        const stats = allMessages.reduce((acc, m) => { if (!acc[m.name]) acc[m.name] = { msg: 0, img: 0, audio: 0 }; if (isAudio(m.message) || isAudio(m.image)) acc[m.name].audio++; else if (isImage(m.message) || isImage(m.image)) acc[m.name].img++; else acc[m.name].msg++; return acc; }, {});
+        const sortedNames = Object.keys(stats).filter(n => n.toLowerCase().includes(query)).sort();
+        root.innerHTML = sortedNames.map(name => `<div class="client-card" onclick="applyClientFilter('${name}')"><div class="avatar" style="background:${getAvatarColor(name)}; width:34px; height:34px;">${name[0]}</div><div class="client-meta"><div class="client-name-title">${name}</div><div class="client-counters"><span class="counter-tag">💬 ${stats[name].msg}</span><span class="counter-tag">📸 ${stats[name].img}</span><span class="counter-tag">🎙️ ${stats[name].audio}</span></div></div><div style="color:var(--secondary)">❯</div></div>`).join('') || '<div style="text-align:center; padding:20px; color:var(--secondary)">לא נמצאו לקוחות</div>';
+    }
+    function applyClientFilter(name) { currentFilter = name; document.getElementById('filter-bar').style.display = 'flex'; document.getElementById('filter-name').textContent = `מסונן: ${name}`; document.getElementById('main-view-title').textContent = name; hideScreens(); renderFeed(); scrollToBottom(); }
+    function clearClientFilter() { currentFilter = null; document.getElementById('filter-bar').style.display = 'none'; document.getElementById('main-view-title').textContent = 'הודעות מסומנות בכוכב'; renderFeed(); scrollToBottom(); }
+    function hideScreens() { document.querySelectorAll('.screen-overlay').forEach(s => s.style.display = 'none'); }
+    function askForPassword() { document.getElementById('password-screen').style.display = 'flex'; }
+    function checkPassword() { 
+        const err = document.getElementById('password-error');
+        if (document.getElementById('pass-input').value === CONFIG.pass) { 
+            if (err) err.style.display = 'none';
+            hideScreens(); 
+            document.getElementById('setup-screen').style.display = 'flex'; 
+            document.getElementById('fetch-url').value = CONFIG.fetch; 
+        } else { 
+            if (err) err.style.display = 'block';
+        } 
+    }
+
+    function saveSettings() { 
+        const val = document.getElementById('fetch-url').value.trim();
+        safeStorage.setItem('star_fetch_v29', val); 
+        CONFIG.fetch = val;
+        hideScreens();
+        
+        document.getElementById('loading-screen').style.display = 'flex';
+        document.getElementById('loading-text').textContent = "מעדכן נתונים ומסנכרן את הלוח...";
+        loadData(); 
+    }
+
+    window.onload = loadData;
+</script>
+</body>
+</html>
